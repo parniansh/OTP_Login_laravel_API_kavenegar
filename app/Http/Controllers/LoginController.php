@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\OtpCodeRequest;
-use App\Http\Requests\RegisterUserRequest;
 use App\Http\Requests\OtpLoginRequest;
 use App\Http\Resources\ErrorResource;
 use App\Http\Resources\SuccessResource;
@@ -11,7 +10,6 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\UserCodes;
 use Exception;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Kavenegar;
 use App\Models\Referral;
@@ -22,56 +20,18 @@ class LoginController extends Controller
 
 
 
-    // public function asignReferralCode($parentReferralCode, $userId)
-    // {
-
-    //     $referralCode = uniqid();
-    //     if (!$parentReferralCode || $parentReferralCode == null) {
-    //         $parentId = null;
-    //         $categorySerial = strval($userId);
-    //     } else {
-    //         $parentReferral_DB = Referral::where(["referral_code" => $parentReferralCode])->first();
-    //         if (!$parentReferral_DB) {
-    //             return new ErrorResource((object)[
-    //                 'error' => __('errors.Error'),
-    //                 'message' => __('errors.Referral Is Invalid'),
-    //             ]);
-    //         }
-    //         $parentId = $parentReferral_DB->user_id;
-    //         $categorySerial = $parentReferral_DB->category_serial . '/' . $userId;
-    //     }
-    //     $referral = Referral::create([
-    //         'user_id' => $userId, 'referral_code' => $referralCode, 'parent_id' => $parentId,
-    //         'category_serial' => $categorySerial
-    //     ]);
-
-    //     return  $referral;
-    // }
-
-
-
-
-
     public function otpCodeRequest(OtpCodeRequest $request)
     {
 
         $token = rand(100000, 999999);
         $now = strtotime(date('Y-m-d H:i:s'));
-        $expire_date = date('Y-m-d H:i:s', $now + (env('OTP_EXPIRE_MINUTES') * 60));
+        $expire_date = date('Y-m-d H:i:s', $now + (env('OTP_EXPIRE_MINUTES') * 60));  //add the environment variable in .env file
         $password = Hash::make($token);
         $user = User::where('phone', $request->phone)->first();
         if (!$user) {
             $user = User::create(["phone" => $request->phone, "password" => $password]);
-            $userWalet = $this->add(0,0,$user->id);
-            $state = ['state' => 0, 'stateToString' => __('userState.zero')];
-        } else {
-            if(!$user->name){
-                $state = ['state' => 0, 'stateToString' => __('userState.zero')];
-            }else{
-                $state = ['state' => 1, 'stateToString' => __('userState.one')];
-            }
+        } 
                 
-        }
         $usercode = UserCodes::where("user-id", $user->id)->first();
         if (!$usercode) {
             $usercode = UserCodes::create(["code" => $password, "user-id" => $user->id, 'expired' => 0, 'expire_date' => $expire_date]);
@@ -79,19 +39,24 @@ class LoginController extends Controller
             $usercode->update(['code' => $password, 'expired' => 0, 'expire_date' => $expire_date]);
         }
         try {
+
+            // In this part you should send the OTP code via SMS service provider API.
+            // For this purpose I used kavenegar. 
             $sender = env("OTP_SENDER");
             $receptor = strval($user->phone);
             $template = "login";
             $result = Kavenegar::VerifyLookup($receptor, $token, $token2 = null, $token3 = null, $template, $type = null);
-            return new SuccessResource((object)['data' => (object)[$result[0], $state]]);
+            return $result;
         } catch (\Kavenegar\Exceptions\ApiException $e) {
             // در صورتی که خروجی وب سرویس 200 نباشد این خطا رخ می دهد
-            return new ErrorResource((object)[
+            // If the response code isn't 200 this error happens
+            return new ErrorResource((object)[  // 
                 'error' => __('errors.KeveNegarApiException'),
                 'message' => $e->errorMessage(),
             ]);
         } catch (\Kavenegar\Exceptions\HttpException $e) {
             // در زمانی که مشکلی در برقرای ارتباط با وب سرویس وجود داشته باشد این خطا رخ می دهد
+            // In case of server connection problems this error happens
             return new ErrorResource((object)[
                 'error' => __('errors.KeveNegarHttpException'),
                 'message' => $e->errorMessage(),
@@ -100,31 +65,7 @@ class LoginController extends Controller
     }
 
 
-
-    public function registerNewUser(RegisterUserRequest $request)
-    {
-        try {
-            $id = Auth::user()->id;
-            $user = User::find($id);
-            if ($user->created_at == $user->updated_at || $user->name == null) {
-                $user->update(['name' => $request->name]);
-                return  $this->asignReferralCode((isset($request->parentReferralCode) && strlen($request->parentReferralCode) > 0) ? $request->parentReferralCode : null, $id);    
-            } else {
-                return new ErrorResource((object)[
-                    'error' => __('errors.Credentials Are Incorrect'),
-                    'message' => __('errors.Credentials Are Incorrect')
-                ]);
-            }
-        } catch (Exception $e) {
-            return new ErrorResource((object)[
-                'error' => __('errors.Credentials Are Incorrect'),
-                'message' => __('errors.Credentials Are Incorrect'),
-            ]);
-        }
-    }
-
-
-
+   
 
 
     public function OtpLogin(OtpLoginRequest $request)
