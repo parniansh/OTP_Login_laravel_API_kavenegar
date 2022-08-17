@@ -1,6 +1,6 @@
 
-<p align="center">
-    OTP login with laravel
+<p>
+   <h1> OTP login with laravel</h1>
 </p>
 
 ## About the app
