@@ -8,10 +8,11 @@
 </p>
 
 ## About the app
-This is an API written with laravel framework.
-Login with OTP code and logout.
-Used kavenegar SMS service provider.
-
+<ul>
+    <li>This is an API written with laravel framework.</li>
+<li>Login with OTP code and logout.</li>
+<li>Used kavenegar SMS service provider.</li>
+</ul>
 
 ## License
 
